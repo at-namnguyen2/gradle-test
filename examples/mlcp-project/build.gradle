@@ -1,0 +1,122 @@
+/*
+ * This buildscript shows how mlcp dependencies can be easily declared and then uses in a Gradle configuration named
+ * "mlcp". This configuration is then used as the classpath for MlcpTask, which is a simple extension of Gradle's
+ * JavaExec task that exposes mlcp arguments as task attributes.
+ */
+
+plugins {
+	id "com.marklogic.ml-gradle" version "3.10.0"
+}
+
+repositories {
+	jcenter()
+
+	// Needed for some mlcp dependencies, such as commons-csv:1.5.1-marklogic
+	maven { url "http://developer.marklogic.com/maven2/" }
+}
+
+
+configurations {
+	mlcp
+}
+
+dependencies {
+	mlcp "com.marklogic:mlcp:9.0.7"
+
+	/**
+	 * mlcp uses Log4j for logging, and if Log4j can't find a configuration file, it will complain and you'll
+	 * get none of mlcp's usually-useful logging. It is recommended then that your Gradle configuration for
+	 * mlcp include a directory or some other resource that provides a log4j.properties file.
+	 */
+	mlcp files("lib")
+}
+
+/**
+ * Example of using MlcpTask to import data with mlcp.
+ */
+task importSampleData(type: com.marklogic.gradle.task.MlcpTask) {
+	classpath = configurations.mlcp
+	command = "IMPORT"
+	database = mlAppConfig.contentDatabaseName
+	output_collections = "sample-import"
+	output_permissions = "rest-reader,read,rest-writer,update"
+	output_uri_replace = ".*import,'/import'"
+
+	/**
+	 * New in ml-gradle 2.6.0 - set this to define a URI in your content database for mlcp's log output to be written to
+	 * as a text document. This can also be a variable, Gradle property, etc.
+	 */
+	logOutputUri = "/mlcp-log.txt"
+
+	/**
+	 * The args array can be used for any MLCP parameters that are not supported by the MlcpBean class that MlcpTask
+	 * delegates to. input_file_path is supported by MlcpTask; this is just included as an example of using the args
+	 * array.
+ 	 */
+	args = ["-input_file_path", "data/import"]
+}
+
+/**
+ * Example of using mlcp to import RDF data - in this case, World Bank's publicly available topical
+ * taxonomy.
+ */
+task importRdf(type: com.marklogic.gradle.task.MlcpTask) {
+	classpath = configurations.mlcp
+	command = "IMPORT"
+	database = mlAppConfig.contentDatabaseName
+	input_file_path = "data/taxonomy.rdf"
+	input_file_type = "rdf"
+	output_uri_replace = ".*data,'/'"
+	output_collections = "world-bank-topical-taxonomy"
+	output_permissions = "rest-reader,read,rest-writer,update"
+}
+
+/**
+ * Example of importing semicolon-delimited text, in reference to:
+ * https://github.com/marklogic-community/ml-gradle/issues/90
+ */
+task importSemicolonDelimitedText(type: com.marklogic.gradle.task.MlcpTask) {
+	classpath = configurations.mlcp
+	command = "IMPORT"
+	database = mlAppConfig.contentDatabaseName
+	input_file_path = "data/semicolon-delimited-file.txt"
+	input_file_type = "delimited_text"
+	output_uri_replace = ".*data,'/'"
+	output_permissions = "rest-reader,read,rest-writer,update"
+	delimiter = ";"
+}
+
+/**
+ * Example of using MlcpTask to export data with mlcp. This example also shows how the connection values can be
+ * overridden.
+ */
+task exportSampleData(type: com.marklogic.gradle.task.MlcpTask) {
+	description = "Example of using mlcp and MlcpTask to export documents; note the args array is used for any args MlcpTask doesn't yet have as task attributes"
+	classpath = configurations.mlcp
+	command = "EXPORT"
+	host = "localhost" // defaults to mlHost
+	port = 8000 // defaults to 8000
+	username = "admin" // defaults to mlRestAdminUsername, which defaults to mlUsername
+	password = "admin" // defaults to mlRestAdminPassword, which defaults to mlPassword
+	database = mlAppConfig.contentDatabaseName
+	output_file_path = "data/export"
+	collection_filter = "sample-import"
+}
+
+/**
+ * Example of a COPY task. In this case, MlcpTask won't populate host/port/username/password, since the arguments have
+ * different names for a COPY, and it's not clear what their values should default to.
+ */
+task copySampleData(type: com.marklogic.gradle.task.MlcpTask) {
+	description = "Copy the sample data from the app-specific database to Documents"
+	classpath = configurations.mlcp
+	command = "COPY"
+	input_host = mlHost
+	input_port = Integer.parseInt(mlRestPort)
+	input_username = mlUsername
+	input_password = mlPassword
+	output_host = mlHost
+	output_port = 8000
+	output_username = mlUsername
+	output_password = mlPassword
+}

@@ -1,0 +1,16 @@
+buildscript {
+	repositories {
+		mavenLocal()
+		jcenter()
+	}
+	dependencies {
+		classpath "com.marklogic:ml-gradle:3.6.0"
+	}
+}
+
+apply plugin: "com.marklogic.ml-gradle"
+
+repositories {
+	mavenLocal()
+	jcenter()
+}
